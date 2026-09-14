@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MacLeod Free Rooms</title>
+<title>MacLeod Room Finder</title>
 <meta name="description" content="Which MacLeod (MCLD) classrooms at UBC are free right now, and for how long.">
 <style>
   :root {
@@ -47,7 +47,10 @@
     font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width: 760px; margin: 0 auto; padding: 16px 14px 48px; }
 
-  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 12px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 6px; }
+  .portfolio-link { display: inline-block; margin-bottom: 14px; padding: 4px 10px; font-size: 12.5px;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 999px; text-decoration: none; }
+  .portfolio-link:hover { color: var(--text); border-color: var(--muted); }
   h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
   header .clock { color: var(--muted); font-variant-numeric: tabular-nums; }
 
@@ -104,9 +107,10 @@
 <body>
 <main>
   <header>
-    <h1>MacLeod free rooms</h1>
+    <h1>MacLeod Room Finder</h1>
     <span class="clock" id="clock"></span>
   </header>
+  <a class="portfolio-link" href="https://dylancunliffe.github.io/">&larr; Back to Dylan's Portfolio</a>
 
   <div class="controls">
     <button id="nowBtn" class="active" type="button">Now</button>
