@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MacLeod Free Rooms</title>
+<meta name="description" content="Which MacLeod (MCLD) classrooms at UBC are free right now, and for how long.">
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --text: #1b1f24;
+    --muted: #6b7280;
+    --line: #e3e6ea;
+    --free: #1a7f4b;
+    --free-bg: #e6f5ec;
+    --busy: #b42323;
+    --busy-bg: #fbeaea;
+    --soon: #a15c00;
+    --soon-bg: #fff3df;
+    --accent: #0c2344;
+    --block: #c9d3e0;
+    --block-now: #0c2344;
+    --marker: #e0361f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216;
+      --card: #181c22;
+      --text: #e7eaee;
+      --muted: #9aa3ad;
+      --line: #2a3038;
+      --free: #4fd18a;
+      --free-bg: #133324;
+      --busy: #ff7a7a;
+      --busy-bg: #3a1c1c;
+      --soon: #ffb84d;
+      --soon-bg: #3a2a10;
+      --accent: #9db8e0;
+      --block: #3b4756;
+      --block-now: #9db8e0;
+      --marker: #ff6a4d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 14px 48px; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 12px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  header .clock { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .controls input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--text); }
+  .controls button { font: inherit; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--text); cursor: pointer; }
+  .controls button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .controls .hint { color: var(--muted); font-size: 13px; }
+
+  .banner { background: var(--soon-bg); color: var(--soon); border-radius: 10px; padding: 10px 12px;
+    margin-bottom: 12px; font-size: 14px; }
+  .banner[hidden] { display: none; }
+
+  .cards { display: grid; gap: 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+    cursor: pointer; }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .room { font-size: 19px; font-weight: 650; }
+  .floor { color: var(--muted); font-size: 13px; }
+  .pill { margin-left: auto; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px; }
+  .pill.free { background: var(--free-bg); color: var(--free); }
+  .pill.busy { background: var(--busy-bg); color: var(--busy); }
+  .pill.soon { background: var(--soon-bg); color: var(--soon); }
+  .status { margin-top: 4px; font-size: 15px; }
+  .status b { font-weight: 650; }
+  .status .sub { color: var(--muted); font-size: 14px; }
+  .status .free-for { color: var(--free); }
+
+  .timeline { position: relative; height: 14px; margin: 10px 0 2px; border-radius: 4px; background: var(--free-bg);
+    overflow: hidden; }
+  .timeline .blk { position: absolute; top: 0; bottom: 0; background: var(--block); }
+  .timeline .blk.now { background: var(--block-now); }
+  .timeline .mark { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--marker); }
+  .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted);
+    font-variant-numeric: tabular-nums; }
+
+  .details { display: none; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 13.5px; }
+  .card.open .details { display: block; }
+  .details table { border-collapse: collapse; width: 100%; }
+  .details td { padding: 3px 6px 3px 0; vertical-align: top; }
+  .details td.t { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 1%; }
+  .details tr.past { opacity: 0.5; }
+  .details tr.cur td { font-weight: 650; }
+  .details .none { color: var(--muted); }
+
+  footer { margin-top: 26px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>MacLeod free rooms</h1>
+    <span class="clock" id="clock"></span>
+  </header>
+
+  <div class="controls">
+    <button id="nowBtn" class="active" type="button">Now</button>
+    <input type="date" id="dateIn" aria-label="Date">
+    <input type="time" id="timeIn" step="300" aria-label="Time">
+    <span class="hint">Pick a date/time to plan ahead. Tap a room for its full day.</span>
+  </div>
+
+  <div class="banner" id="banner" hidden></div>
+  <div class="cards" id="cards"></div>
+
+  <footer>
+    Timetable data exported from the UBC Scientia room timetable on <span id="asof"></span>.
+    Only timetabled bookings are shown; ad-hoc bookings made after that date won't appear, and a room being "free"
+    doesn't guarantee it's unlocked. Times are Vancouver local time.
+  </footer>
+</main>
+
+<script src="schedule.js"></script>
+<script>
+(function () {
+  const S = window.SCHEDULE;
+  const DAY_START = 7 * 60, DAY_END = 22 * 60;   // displayed window
+  const TZ = 'America/Vancouver';
+  const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  // ---------- time helpers ----------
+  function vanNow() {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', weekday: 'short',
+    }).formatToParts(new Date()).filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+    return { ymd: `${p.year}-${p.month}-${p.day}`, min: (+p.hour % 24) * 60 + +p.minute };
+  }
+  function ymdToUTC(ymd) { const [y, m, d] = ymd.split('-').map(Number); return Date.UTC(y, m - 1, d); }
+  function weekOf(ymd) { return Math.floor((ymdToUTC(ymd) - ymdToUTC(S.week1)) / 864e5 / 7) + 1; }
+  function dowOf(ymd) { return (new Date(ymdToUTC(ymd)).getUTCDay() + 6) % 7; }   // Mon=0
+  function hm(min) {
+    const h = Math.floor(min / 60), m = min % 60;
+    const h12 = ((h + 11) % 12) + 1;
+    return `${h12}:${String(m).padStart(2, '0')}${h < 12 ? 'am' : 'pm'}`;
+  }
+  function dur(min) {
+    const h = Math.floor(min / 60), m = min % 60;
+    return h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
+  }
+  function niceDate(ymd) {
+    return new Date(ymdToUTC(ymd)).toLocaleDateString('en-CA', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' });
+  }
+
+  // ---------- schedule logic ----------
+  function eventsFor(room, week, dow) {
+    return S.events.filter(e => e.room === room && e.day === dow && e.weeks.includes(week))
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+  }
+  // Merge overlapping events into busy blocks.
+  function blocksOf(events) {
+    const out = [];
+    for (const e of events) {
+      const last = out[out.length - 1];
+      if (last && e.start <= last.end) { last.end = Math.max(last.end, e.end); last.evs.push(e); }
+      else out.push({ start: e.start, end: e.end, evs: [e] });
+    }
+    return out;
+  }
+  const uniq = a => [...new Set(a)];
+  function status(blocks, t) {
+    const cur = blocks.find(b => b.start <= t && t < b.end);
+    if (cur) {
+      const next = blocks[blocks.indexOf(cur) + 1];
+      return { free: false, until: cur.end,
+               names: uniq(cur.evs.filter(e => e.start <= t && t < e.end).map(e => e.short)),
+               freeFrom: cur.end, freeUntil: next ? next.start : null };
+    }
+    const next = blocks.find(b => b.start > t);
+    return { free: true, until: next ? next.start : null,
+             nextNames: next ? uniq(next.evs.filter(e => e.start === next.start).map(e => e.short)) : null };
+  }
+
+  // ---------- rendering ----------
+  const cardsEl = document.getElementById('cards');
+  const bannerEl = document.getElementById('banner');
+  const clockEl = document.getElementById('clock');
+  const openRooms = new Set();
+
+  function render(ymd, t, live) {
+    const week = weekOf(ymd), dow = dowOf(ymd);
+    clockEl.textContent = `${niceDate(ymd)} · ${hm(t)}${live ? '' : ' (planning)'}`;
+
+    const rows = S.rooms.map(room => {
+      const evs = eventsFor(room, week, dow);
+      const blocks = blocksOf(evs);
+      return { room, evs, blocks, st: status(blocks, t) };
+    });
+
+    // Banner for out-of-range / empty weeks.
+    const anyThisWeek = S.events.some(e => e.weeks.includes(week));
+    if (week < 1 || ymd > S.exportEnd) {
+      bannerEl.textContent = `This date is outside the exported timetable (${S.week1} to ${S.exportEnd}).`;
+      bannerEl.hidden = false;
+    } else if (!anyThisWeek) {
+      bannerEl.textContent = 'No timetabled bookings in any of these rooms this week — either it\'s a break, or this term\'s timetable wasn\'t published when the data was exported.';
+      bannerEl.hidden = false;
+    } else bannerEl.hidden = true;
+
+    // Free rooms first (longest free window first), then busy rooms (soonest free first).
+    const freeLen = r => (r.st.until ?? Math.max(DAY_END, t + 1)) - t;
+    rows.sort((a, b) => {
+      if (a.st.free !== b.st.free) return a.st.free ? -1 : 1;
+      return a.st.free ? freeLen(b) - freeLen(a) : a.st.until - b.st.until;
+    });
+
+    cardsEl.innerHTML = rows.map(r => {
+      const { room, blocks, st, evs } = r;
+      const floor = room.split(' ')[1][0] === '3' ? '3rd floor' : '2nd floor';
+      let pill, pillCls, line, sub = '';
+      if (st.free) {
+        const left = st.until == null ? null : st.until - t;
+        if (left != null && left <= 15) { pill = 'Free · ends soon'; pillCls = 'soon'; }
+        else { pill = 'Free'; pillCls = 'free'; }
+        if (st.until == null) {
+          line = t >= DAY_END ? '<b>Free</b> — nothing scheduled this evening'
+               : evs.length ? '<b>Free for the rest of the day</b>' : '<b>Free all day</b> — nothing scheduled';
+        } else {
+          line = `<b class="free-for">Free for ${dur(left)}</b> · until ${hm(st.until)}`;
+          sub = `Then: ${st.nextNames.join(', ')}`;
+        }
+      } else {
+        pill = 'In use'; pillCls = 'busy';
+        line = `<b>In use until ${hm(st.until)}</b> · ${st.names.join(', ')}`;
+        const gap = (st.freeUntil ?? DAY_END) - st.freeFrom;
+        sub = st.freeUntil == null
+          ? `Free from ${hm(st.freeFrom)} for the rest of the day`
+          : gap > 0 ? `Free ${hm(st.freeFrom)}–${hm(st.freeUntil)} (${dur(gap)})` : '';
+      }
+
+      const span = DAY_END - DAY_START;
+      const pct = m => Math.min(100, Math.max(0, (m - DAY_START) / span * 100));
+      const tl = blocks.map(b =>
+        `<div class="blk${b.start <= t && t < b.end ? ' now' : ''}" style="left:${pct(b.start)}%;width:${pct(b.end) - pct(b.start)}%" title="${esc(uniq(b.evs.map(e => e.short)).join(', '))} ${hm(b.start)}–${hm(b.end)}"></div>`
+      ).join('') + (t >= DAY_START && t <= DAY_END ? `<div class="mark" style="left:${pct(t)}%"></div>` : '');
+
+      const details = evs.length ? `<table>${evs.map(e => {
+        const cls = e.end <= t ? 'past' : e.start <= t ? 'cur' : '';
+        return `<tr class="${cls}"><td class="t">${hm(e.start)}–${hm(e.end)}</td><td>${esc(e.name)}${e.staff ? ` <span class="sub" style="color:var(--muted)">· ${esc(e.staff)}</span>` : ''}</td></tr>`;
+      }).join('')}</table>` : '<div class="none">No bookings on this day.</div>';
+
+      return `<div class="card${openRooms.has(room) ? ' open' : ''}" data-room="${room}" tabindex="0" role="button" aria-expanded="${openRooms.has(room)}">
+        <div class="row"><span class="room">${room}</span><span class="floor">${floor}</span><span class="pill ${pillCls}">${pill}</span></div>
+        <div class="status">${line}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>
+        <div class="timeline">${tl}</div>
+        <div class="ticks"><span>7am</span><span>10am</span><span>1pm</span><span>4pm</span><span>7pm</span><span>10pm</span></div>
+        <div class="details">${details}</div>
+      </div>`;
+    }).join('');
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  cardsEl.addEventListener('click', e => {
+    const card = e.target.closest('.card'); if (!card) return;
+    const room = card.dataset.room;
+    openRooms.has(room) ? openRooms.delete(room) : openRooms.add(room);
+    card.classList.toggle('open'); card.setAttribute('aria-expanded', openRooms.has(room));
+  });
+  cardsEl.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('card')) { e.preventDefault(); e.target.click(); }
+  });
+
+  // ---------- controls ----------
+  const dateIn = document.getElementById('dateIn'), timeIn = document.getElementById('timeIn'), nowBtn = document.getElementById('nowBtn');
+  let live = true;
+  function tick() {
+    const n = vanNow();
+    if (live) {
+      dateIn.value = n.ymd;
+      timeIn.value = `${String(Math.floor(n.min / 60)).padStart(2, '0')}:${String(n.min % 60).padStart(2, '0')}`;
+      render(n.ymd, n.min, true);
+    }
+  }
+  function manual() {
+    if (!dateIn.value || !timeIn.value) return;
+    live = false; nowBtn.classList.remove('active');
+    const [h, m] = timeIn.value.split(':').map(Number);
+    render(dateIn.value, h * 60 + m, false);
+  }
+  dateIn.addEventListener('change', manual);
+  timeIn.addEventListener('change', manual);
+  nowBtn.addEventListener('click', () => { live = true; nowBtn.classList.add('active'); tick(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+
+  document.getElementById('asof').textContent = S.exported;
+  tick();
+  setInterval(tick, 30 * 1000);
+})();
+</script>
+</body>
+</html>
